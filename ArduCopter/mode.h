@@ -657,7 +657,8 @@ protected:
     const char *name4() const override { return "FLAC"; }
 
 private:
-
+    int8_t    roll_dir;            // roll direction (-1 = roll left, 1 = roll right)
+    int8_t    pitch_dir;           // pitch direction (-1 = pitch forward, 1 = pitch back)
 };
 
 #if !HAL_MINIMIZE_FEATURES && OPTFLOW == ENABLED
