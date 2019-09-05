@@ -642,6 +642,8 @@ public:
     // inherit constructor
     using Mode::Mode;
 
+    bool init(bool ignore_checks) override;
+
     virtual void run() override;
 
     bool requires_GPS() const override { return false; }
