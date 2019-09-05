@@ -636,6 +636,27 @@ private:
     int8_t    pitch_dir;           // pitch direction (-1 = pitch forward, 1 = pitch back)
 };
 
+class ModeFlipAfterCrash : public Mode {
+
+public:
+    // inherit constructor
+    using Mode::Mode;
+
+    virtual void run() override;
+
+    bool requires_GPS() const override { return false; }
+    bool has_manual_throttle() const override { return true; }
+    bool allows_arming(bool from_gcs) const override { return true; };
+    bool is_autopilot() const override { return false; }
+
+protected:
+
+    const char *name() const override { return "STABILIZE"; }
+    const char *name4() const override { return "FLAC"; }
+
+private:
+
+};
 
 #if !HAL_MINIMIZE_FEATURES && OPTFLOW == ENABLED
 /*

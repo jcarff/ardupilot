@@ -98,6 +98,11 @@ Mode *Copter::mode_from_mode_num(const uint8_t mode)
             ret = &mode_flip;
             break;
 #endif
+#if MODE_FLIPAFTERCRASH_ENABLED == ENABLED
+        case FLIPAFTERCRASH:
+            ret = &mode_flipaftercrash;
+            break;
+#endif
 
 #if AUTOTUNE_ENABLED == ENABLED
         case AUTOTUNE:

@@ -224,6 +224,7 @@ public:
     friend class ModeCircle;
     friend class ModeDrift;
     friend class ModeFlip;
+    friend class ModeFlipAfterCrash;
     friend class ModeFlowHold;
     friend class ModeFollow;
     friend class ModeGuided;
@@ -914,6 +915,9 @@ private:
 #endif
 #if MODE_FLIP_ENABLED == ENABLED
     ModeFlip mode_flip;
+#endif
+#if MODE_FLIPAFTERCRASH_ENABLED == ENABLED
+    ModeFlipAfterCrash mode_flipaftercrash;
 #endif
 #if MODE_FOLLOW_ENABLED == ENABLED
     ModeFollow mode_follow;
