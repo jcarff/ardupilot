@@ -643,9 +643,9 @@ public:
     using Mode::Mode;
 
     bool init(bool ignore_checks) override;
-
     virtual void run() override;
 
+    void stop();
     bool requires_GPS() const override { return false; }
     bool has_manual_throttle() const override { return true; }
     bool allows_arming(bool from_gcs) const override { return true; };

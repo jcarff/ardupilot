@@ -159,8 +159,12 @@ void Copter::motors_output()
     // update output on any aux channels, for manual passthru
     SRV_Channels::output_ch_all();
 
+    //check to see if we are flipping the drone after a crash
+    if (flightmode == &mode_flipaftercrash) {
+        //dont do any motor control here, it is all controlled by the flight mode directly
+    }
     // check if we are performing the motor test
-    if (ap.motor_test) {
+    else if (ap.motor_test) {
         motor_test_output();
     } else {
         bool interlock = motors->armed() && !ap.in_arming_delay && (!ap.using_interlock || ap.motor_interlock_switch) && !SRV_Channels::get_emergency_stop();
