@@ -306,7 +306,7 @@
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
-// flip - fly vehicle in flip in pitch and roll direction mode
+// flip after crash - right the vehicle after a crash on its back
 #ifndef MODE_FLIPAFTERCRASH_ENABLED
 # define MODE_FLIPAFTERCRASH_ENABLED ENABLED
 #endif
