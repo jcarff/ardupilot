@@ -279,6 +279,12 @@ void Copter::update_flight_mode()
 void Copter::exit_mode(Mode *&old_flightmode,
                        Mode *&new_flightmode)
 {
+
+#if MODE_FLIPAFTERCRASH_ENABLED == ENABLED
+    if (old_flightmode == &mode_flipaftercrash) {
+        mode_flipaftercrash.stop();
+    }
+#endif
 #if AUTOTUNE_ENABLED == ENABLED
     if (old_flightmode == &mode_autotune) {
         mode_autotune.stop();
