@@ -2,14 +2,9 @@
 
 #if MODE_FLIPAFTERCRASH_ENABLED == ENABLED
 
-#define FLIP_ROLL_RIGHT      1      // used to set flip_dir
-#define FLIP_ROLL_LEFT      -1      // used to set flip_dir
 
-#define FLIP_PITCH_BACK      1      // used to set flip_dir
-#define FLIP_PITCH_FORWARD  -1      // used to set flip_dir
 #define MOTOR_TEST_PWM_MIN              800     // min pwm value accepted by the test
 #define MOTOR_TEST_PWM_MAX              2200    // max pwm value accepted by the test
-
 
 bool ModeFlipAfterCrash::init(bool ignore_checks) {
 #if FRAME_CONFIG == HELI_FRAME
@@ -35,18 +30,6 @@ bool ModeFlipAfterCrash::init(bool ignore_checks) {
 
     gcs().send_text(MAV_SEVERITY_INFO, "starting flip after crash mode");
 
-    roll_dir = pitch_dir = 0;
-
-    // choose direction based on pilot's roll and pitch sticks
-    if (channel_pitch->get_control_in() > 300) {
-        pitch_dir = FLIP_PITCH_BACK;
-    } else if (channel_pitch->get_control_in() < -300) {
-        pitch_dir = FLIP_PITCH_FORWARD;
-    } else if (channel_roll->get_control_in() >= 0) {
-        roll_dir = FLIP_ROLL_RIGHT;
-    } else {
-        roll_dir = FLIP_ROLL_LEFT;
-    }
     return true;
 }
 
@@ -54,13 +37,43 @@ bool ModeFlipAfterCrash::init(bool ignore_checks) {
 void ModeFlipAfterCrash::run() {
 
     int16_t pwm = 0;   // pwm that will be output to the motors
+    int8_t motor1 = 1;
+    int8_t motor2 = 2;
 
-    pwm = channel_throttle->get_radio_in();
+
+    // choose direction based on pilot's roll and pitch sticks
+    if (channel_pitch->get_control_in() > 100)
+    {
+        pwm = channel_pitch->get_radio_in();
+        motor1 = 1;
+        motor2 = 2;
+
+    }
+    else if (channel_pitch->get_control_in() < -100)
+    {
+        pwm = channel_pitch->get_radio_in();
+        motor1 = 3;
+        motor2 = 4;
+    }
+    else if (channel_roll->get_control_in() > 100)
+    {
+        pwm = channel_roll->get_radio_in();
+        motor1 = 2;
+        motor2 = 4;
+    }
+    else if (channel_roll->get_control_in() < -100)
+    {
+        pwm = channel_roll->get_radio_in();
+        motor1 = 3;
+        motor2 = 1;
+    }
+
 
     // sanity check throttle values
     if (pwm >= MOTOR_TEST_PWM_MIN && pwm <= MOTOR_TEST_PWM_MAX) {
         // turn on motor to specified pwm value
-        motors->output_test_seq(1, -pwm);
+        motors->output_test_seq(motor1, pwm);
+        motors->output_test_seq(motor2, pwm);
     } else {
         motors->output_min();
     }
@@ -77,7 +90,6 @@ void ModeFlipAfterCrash::stop() {
     g.failsafe_throttle.load();
     g.failsafe_gcs.load();
     g.fs_ekf_action.load();
-
 
     // turn off notify leds
     AP_Notify::flags.esc_calibration = false;
