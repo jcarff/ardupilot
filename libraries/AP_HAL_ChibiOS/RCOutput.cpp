@@ -952,7 +952,6 @@ void RCOutput::dshot_send(pwm_group &group, bool blocking)
                 // dshot values are from 48 to 2047. Zero means off.
                 value += 47;
             }
-
             bool request_telemetry = (telem_request_mask & chan_mask)?true:false;
             uint16_t packet = create_dshot_packet(value, request_telemetry);
             if (request_telemetry) {
