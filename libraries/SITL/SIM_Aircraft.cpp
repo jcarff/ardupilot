@@ -31,6 +31,7 @@
 
 #include <AP_Logger/AP_Logger.h>
 #include <AP_Param/AP_Param.h>
+#include <AP_Declination/AP_Declination.h>
 
 using namespace SITL;
 
@@ -728,6 +729,11 @@ void Aircraft::update_external_payload(const struct sitl_input &input)
     if (sprayer && sprayer->is_enabled()) {
         sprayer->update(input);
         external_payload_mass += sprayer->payload_mass();
+    }
+
+    // update buzzer
+    if (buzzer && buzzer->is_enabled()) {
+        buzzer->update(input);
     }
 
     // update grippers

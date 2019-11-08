@@ -23,7 +23,6 @@
 #include <AP_Common/AP_Common.h>
 #include <AP_Common/Location.h>
 #include <GCS_MAVLink/GCS_MAVLink.h>
-#include <AP_SerialManager/AP_SerialManager.h>
 
 // maximum number of mounts
 #define AP_MOUNT_MAX_INSTANCES          1
@@ -52,7 +51,7 @@ class AP_Mount
     friend class AP_Mount_SToRM32_serial;
 
 public:
-    AP_Mount(const struct Location &current_loc);
+    AP_Mount();
 
     /* Do not allow copies */
     AP_Mount(const AP_Mount &other) = delete;
@@ -74,7 +73,7 @@ public:
     };
 
     // init - detect and initialise all mounts
-    void init(const AP_SerialManager& serial_manager);
+    void init();
 
     // update - give mount opportunity to update servos.  should be called at 10hz or higher
     void update();
@@ -130,9 +129,6 @@ protected:
 
     static AP_Mount *_singleton;
 
-    // private members
-    const struct Location   &_current_loc;  // reference to the vehicle's current location
-
     // frontend parameters
     AP_Int8             _joystick_speed;    // joystick gain
 
@@ -171,6 +167,7 @@ protected:
 
         MAV_MOUNT_MODE  _mode;              // current mode (see MAV_MOUNT_MODE enum)
         struct Location _roi_target;        // roi target location
+        uint32_t _roi_target_set_ms;
     } state[AP_MOUNT_MAX_INSTANCES];
 
 private:

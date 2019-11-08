@@ -73,9 +73,9 @@ void AirSim::send_servos(const struct sitl_input &input)
 	if (send_ret != sizeof(pkt)) {
 		if (send_ret <= 0) {
 			printf("Unable to send servo output to %s:%u - Error: %s, Return value: %ld\n",
-					 airsim_ip, airsim_control_port, strerror(errno), send_ret);
+                   airsim_ip, airsim_control_port, strerror(errno), (long)send_ret);
 		} else {
-			printf("Sent %ld bytes instead of %ld bytes\n", send_ret, sizeof(pkt));
+			printf("Sent %ld bytes instead of %lu bytes\n", (long)send_ret, (unsigned long)sizeof(pkt));
 		}
 	}
 }
@@ -262,8 +262,8 @@ void AirSim::recv_fdm()
 
     dcm.from_euler(state.pose.roll, state.pose.pitch, state.pose.yaw);
 
-    if (last_state.timestamp) {
-        double deltat = state.timestamp - last_state.timestamp;
+    if (last_timestamp) {
+        int deltat = state.timestamp - last_timestamp;
         time_now_us += deltat;
 
         if (deltat > 0 && deltat < 100000) {
@@ -312,7 +312,7 @@ void AirSim::recv_fdm()
                        velocity_ef.z);
 #endif
 
-    last_state = state;
+    last_timestamp = state.timestamp;
 }
 
 /*
@@ -322,9 +322,6 @@ void AirSim::update(const struct sitl_input &input)
 {
 	send_servos(input);
     recv_fdm();
-    // Airsim takes approximately 3ms between each message (or 333 Hz)
-    adjust_frame_time(1.0e6/3000);
-    time_advance();
 
     // update magnetic field
     update_mag_field_bf();

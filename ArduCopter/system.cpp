@@ -1,4 +1,5 @@
 #include "Copter.h"
+#include <AP_BLHeli/AP_BLHeli.h>
 
 /*****************************************************************************
 *   The init_ardupilot function processes everything we need for an in - air restart
@@ -66,6 +67,10 @@ void Copter::init_ardupilot()
     // init cargo gripper
 #if GRIPPER_ENABLED == ENABLED
     g2.gripper.init();
+#endif
+
+#if AC_FENCE == ENABLED
+    fence.init();
 #endif
 
     // init winch and wheel encoder
@@ -160,7 +165,7 @@ void Copter::init_ardupilot()
 
 #if MOUNT == ENABLED
     // initialise camera mount
-    camera_mount.init(serial_manager);
+    camera_mount.init();
 #endif
 
 #if PRECISION_LANDING == ENABLED
@@ -281,6 +286,45 @@ void Copter::startup_INS_ground()
     ahrs.reset();
 }
 
+// update the harmonic notch filter center frequency dynamically
+void Copter::update_dynamic_notch()
+{
+    const float ref_freq = ins.get_gyro_harmonic_notch_center_freq_hz();
+    const float ref = ins.get_gyro_harmonic_notch_reference();
+
+    if (is_zero(ref)) {
+        ins.update_harmonic_notch_freq_hz(ref_freq);
+        return;
+    }
+
+    switch (ins.get_gyro_harmonic_notch_tracking_mode()) {
+        case HarmonicNotch_UpdateThrottle: // throttle based tracking
+            // set the harmonic notch filter frequency approximately scaled on motor rpm implied by throttle
+            ins.update_harmonic_notch_freq_hz(ref_freq * MAX(1.0f, sqrtf(motors->get_throttle_out() / ref)));
+            break;
+
+#if RPM_ENABLED == ENABLED
+        case HarmonicNotch_UpdateRPM: // rpm sensor based tracking
+            if (rpm_sensor.healthy(0)) {
+                // set the harmonic notch filter frequency from the main rotor rpm
+                ins.update_harmonic_notch_freq_hz(MAX(ref_freq, rpm_sensor.get_rpm(0) * ref / 60.0f));
+            } else {
+                ins.update_harmonic_notch_freq_hz(ref_freq);
+            }
+            break;
+#endif
+#ifdef HAVE_AP_BLHELI_SUPPORT
+        case HarmonicNotch_UpdateBLHeli: // BLHeli based tracking
+            ins.update_harmonic_notch_freq_hz(MAX(ref_freq, AP_BLHeli::get_singleton()->get_average_motor_frequency_hz() * ref));
+            break;
+#endif
+        case HarmonicNotch_Fixed: // static
+        default:
+            ins.update_harmonic_notch_freq_hz(ref_freq);
+            break;
+    }
+}
+
 // position_ok - returns true if the horizontal absolute position is ok and home position is set
 bool Copter::position_ok() const
 {
@@ -382,7 +426,7 @@ void Copter::update_auto_armed()
         // if motors are armed and throttle is above zero auto_armed should be true
         // if motors are armed and we are in throw mode, then auto_armed should be true
         } else if (motors->armed() && !ap.using_interlock) {
-            if(!ap.throttle_zero || control_mode == THROW) {
+            if(!ap.throttle_zero || control_mode == Mode::Number::THROW) {
                 set_auto_armed(true);
             }
         }

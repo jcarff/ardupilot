@@ -469,6 +469,11 @@ def _build_recursion(bld):
     if bld.env.IOMCU_FW is not None:
         if bld.env.IOMCU_FW:
             dirs_to_recurse.append('libraries/AP_IOMCU/iofirmware')
+
+    if bld.env.PERIPH_FW is not None:
+        if bld.env.PERIPH_FW:
+            dirs_to_recurse.append('Tools/AP_Periph')
+
     for p in hal_dirs_patterns:
         dirs_to_recurse += collect_dirs_to_recurse(
             bld,
@@ -491,9 +496,6 @@ def _build_post_funs(bld):
 
     if bld.env.SUBMODULE_UPDATE:
         bld.git_submodule_post_fun()
-
-    if bld.env.GCOV_ENABLED:
-      bld.add_post_fun(lcov_report)
 
 def _load_pre_build(bld):
     '''allow for a pre_build() function in build modules'''
@@ -547,7 +549,7 @@ ardupilotwaf.build_command('check-all',
     doc='shortcut for `waf check --alltests`',
 )
 
-for name in ('antennatracker', 'copter', 'heli', 'plane', 'rover', 'sub', 'bootloader','iofirmware'):
+for name in ('antennatracker', 'copter', 'heli', 'plane', 'rover', 'sub', 'bootloader','iofirmware','AP_Periph'):
     ardupilotwaf.build_command(name,
         program_group_list=name,
         doc='builds %s programs' % name,

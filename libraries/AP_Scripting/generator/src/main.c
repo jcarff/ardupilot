@@ -9,6 +9,7 @@
 
 char keyword_alias[]     = "alias";
 char keyword_comment[]   = "--";
+char keyword_depends[]   = "depends";
 char keyword_enum[]      = "enum";
 char keyword_field[]     = "field";
 char keyword_include[]   = "include";
@@ -45,6 +46,7 @@ enum error_codes {
   ERROR_INTERNAL        = 5, // internal error of some form
   ERROR_GENERAL         = 6, // general error
   ERROR_SINGLETON       = 7, // singletons
+  ERROR_DEPENDS         = 8, // dependencies
 };
 
 struct header {
@@ -73,6 +75,7 @@ enum trace_level {
   TRACE_GENERAL   = (1 << 2),
   TRACE_USERDATA  = (1 << 3),
   TRACE_SINGLETON = (1 << 4),
+  TRACE_DEPENDS   = (1 << 5),
 };
 
 enum access_flags {
@@ -309,6 +312,15 @@ struct userdata {
 };
 
 static struct userdata *parsed_userdata = NULL;
+
+struct dependency {
+  struct dependency * next;
+  char *symbol;    // dependency symbol to check
+  char *value;     // value to target
+  char *error_msg; // message if the check fails
+};
+
+static struct dependency *parsed_dependencies = NULL;
 
 // lazy helper that allocates a storage buffer and does strcpy for us
 void string_copy(char **dest, const char * src) {
@@ -678,7 +690,7 @@ void handle_userdata(void) {
   // read type
   char *type = next_token();
   if (type == NULL) {
-    error(ERROR_USERDATA, "Expected an access type for userdata %s", name);
+    error(ERROR_USERDATA, "Expected a access type for userdata %s", name);
   }
 
   // match type
@@ -724,7 +736,7 @@ void handle_singleton(void) {
   // read type
   char *type = next_token();
   if (type == NULL) {
-    error(ERROR_SINGLETON, "Expected an access type for userdata %s", name);
+    error(ERROR_SINGLETON, "Expected a access type for userdata %s", name);
   }
 
   if (strcmp(type, keyword_alias) == 0) {
@@ -754,6 +766,36 @@ void handle_singleton(void) {
   }
 }
 
+void handle_depends(void) {
+  trace(TRACE_DEPENDS, "Adding a dependency");
+
+  char *symbol = next_token();
+  if (symbol == NULL) {
+    error(ERROR_DEPENDS, "Expected a name symbol for the dependency");
+  }
+
+  // read value
+  char *value = next_token();
+  if (value == NULL) {
+    error(ERROR_DEPENDS, "Expected a required value for dependency on %s", symbol);
+  }
+
+  char *error_msg = strtok(NULL, "");
+  if (error_msg == NULL) {
+    error(ERROR_DEPENDS, "Expected a error message for dependency on %s", symbol);
+  }
+
+  trace(TRACE_SINGLETON, "Allocating new dependency for %s", symbol);
+  struct dependency * node = (struct dependency *)allocate(sizeof(struct dependency));
+  node->symbol = (char *)allocate(strlen(symbol) + 1);
+  strcpy(node->symbol, symbol);
+  node->value = (char *)allocate(strlen(value) + 1);
+  strcpy(node->value, value);
+  node->error_msg = (char *)allocate(strlen(error_msg) + 1);
+  strcpy(node->error_msg, error_msg);
+  node->next = parsed_dependencies;
+  parsed_dependencies = node;
+}
 void sanity_check_userdata(void) {
   struct userdata * node = parsed_userdata;
   while(node) {
@@ -768,6 +810,16 @@ void emit_headers(FILE *f) {
   struct header *node = headers;
   while (node) {
     fprintf(f, "#include <%s>\n", node->name);
+    node = node->next;
+  }
+}
+
+void emit_dependencies(FILE *f) {
+  struct dependency *node = parsed_dependencies;
+  while (node) {
+    fprintf(f, "#if !defined(%s) || (%s != %s)\n", node->symbol, node->symbol, node->value);
+    fprintf(f, "  #error %s\n", node->error_msg);
+    fprintf(f, "#endif // !defined(%s) || (%s != %s)\n", node->symbol, node->symbol, node->value);
     node = node->next;
   }
 }
@@ -809,7 +861,7 @@ void emit_userdata_declarations(void) {
 }
 
 #define NULLABLE_ARG_COUNT_BASE 5000
-void emit_checker(const struct type t, int arg_number, const char *indentation, const char *name) {
+void emit_checker(const struct type t, int arg_number, int skipped, const char *indentation, const char *name) {
   assert(indentation != NULL);
 
   if (arg_number > NULLABLE_ARG_COUNT_BASE) {
@@ -892,8 +944,8 @@ void emit_checker(const struct type t, int arg_number, const char *indentation, 
         forced_max = "UINT16_MAX";
         break;
       case TYPE_UINT32_T:
-        forced_min = "0";
-        forced_max = "UINT16_MAX";
+        forced_min = "0U";
+        forced_max = "UINT32_MAX";
         break;
       case TYPE_ENUM:
         forced_min = forced_max = NULL;
@@ -912,7 +964,7 @@ void emit_checker(const struct type t, int arg_number, const char *indentation, 
     // non down cast
     switch (t.type) {
       case TYPE_FLOAT:
-        fprintf(source, "%sconst float raw_data_%d = luaL_checknumber(L, %d);\n", indentation, arg_number, arg_number);
+        fprintf(source, "%sconst float raw_data_%d = luaL_checknumber(L, %d);\n", indentation, arg_number, arg_number - skipped);
         break;
       case TYPE_INT8_T:
       case TYPE_INT16_T:
@@ -920,10 +972,10 @@ void emit_checker(const struct type t, int arg_number, const char *indentation, 
       case TYPE_UINT8_T:
       case TYPE_UINT16_T:
       case TYPE_ENUM:
-        fprintf(source, "%sconst lua_Integer raw_data_%d = luaL_checkinteger(L, %d);\n", indentation, arg_number, arg_number);
+        fprintf(source, "%sconst lua_Integer raw_data_%d = luaL_checkinteger(L, %d);\n", indentation, arg_number, arg_number - skipped);
         break;
       case TYPE_UINT32_T:
-        fprintf(source, "%sconst uint32_t raw_data_%d = coerce_to_uint32_t(L, %d);\n", indentation, arg_number, arg_number);
+        fprintf(source, "%sconst uint32_t raw_data_%d = *check_uint32_t(L, %d);\n", indentation, arg_number, arg_number - skipped);
         break;
       case TYPE_NONE:
       case TYPE_STRING:
@@ -974,7 +1026,7 @@ void emit_checker(const struct type t, int arg_number, const char *indentation, 
                  indentation,
                  arg_number, cast_target, t.range->low,
                  arg_number, cast_target, t.range->high,
-                 arg_number, name);
+                 arg_number - skipped, name);
        }
     }
 
@@ -1068,7 +1120,7 @@ void emit_userdata_field(const struct userdata *data, const struct userdata_fiel
 
   if (field->access_flags & ACCESS_FLAG_WRITE) {
     fprintf(source, "        case 2: {\n");
-    emit_checker(field->type, 2, "            ", field->name);
+    emit_checker(field->type, 2, 0, "            ", field->name);
     fprintf(source, "            ud->%s = data_2;\n", field->name);
     fprintf(source, "            return 0;\n");
     fprintf(source, "         }\n");
@@ -1132,11 +1184,15 @@ void emit_userdata_method(const struct userdata *data, const struct method *meth
   // extract the arguments
   arg = method->arguments;
   arg_count = 2;
+  int skipped = 0;
   while (arg != NULL) {
     if (arg->type.type != TYPE_LITERAL) {
       // emit_checker will emit a nullable argument for us
-      emit_checker(arg->type, arg_count, "    ", "argument");
+      emit_checker(arg->type, arg_count, skipped, "    ", "argument");
       arg_count++;
+    }
+    if (arg->type.type == TYPE_LITERAL || arg->type.flags & TYPE_FLAGS_NULLABLE) {
+      skipped++;
     }
     arg = arg->next;
   }
@@ -1647,6 +1703,8 @@ int main(int argc, char **argv) {
         handle_userdata();
       } else if (strcmp (state.token, keyword_singleton) == 0){
         handle_singleton();
+      } else if (strcmp (state.token, keyword_depends) == 0){
+        handle_depends();
       } else {
         error(ERROR_UNKNOWN_KEYWORD, "Expected a keyword, got: %s", state.token);
       }
@@ -1678,6 +1736,10 @@ int main(int argc, char **argv) {
   trace(TRACE_GENERAL, "Starting emission");
 
   emit_headers(source);
+
+  fprintf(source, "\n\n");
+
+  emit_dependencies(source);
 
   fprintf(source, "\n\n");
 
@@ -1715,6 +1777,8 @@ int main(int argc, char **argv) {
   emit_headers(header);
   fprintf(header, "#include \"lua/src/lua.hpp\"\n");
   fprintf(header, "#include <new>\n\n");
+  emit_dependencies(header);
+  fprintf(header, "\n\n");
 
   emit_userdata_declarations();
 

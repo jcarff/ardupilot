@@ -406,7 +406,7 @@ MAV_RESULT GCS_MAVLINK_Tracker::handle_command_long_packet(const mavlink_command
 
         // mavproxy/mavutil sends this when auto command is entered 
     case MAV_CMD_MISSION_START:
-        tracker.set_mode(AUTO, MODE_REASON_GCS_COMMAND);
+        tracker.set_mode(AUTO, ModeReason::GCS_COMMAND);
         return MAV_RESULT_ACCEPTED;
 
     default:
@@ -569,13 +569,6 @@ mission_failed:
 } // end handle mavlink
 
 
-uint64_t GCS_MAVLINK_Tracker::capabilities() const
-{
-    return (MAV_PROTOCOL_CAPABILITY_PARAM_FLOAT |
-            MAV_PROTOCOL_CAPABILITY_COMPASS_CALIBRATION |
-            GCS_MAVLINK::capabilities());
-}
-
 /*
  *  a delay() callback that processes MAVLink packets. We set this as the
  *  callback in long running library initialisation routines to allow
@@ -605,23 +598,6 @@ void Tracker::mavlink_delay_cb()
         gcs().send_text(MAV_SEVERITY_INFO, "Initialising APM");
     }
     logger.EnableWrites(true);
-}
-
-/*
-  set_mode() wrapper for MAVLink SET_MODE
- */
-bool GCS_MAVLINK_Tracker::set_mode(uint8_t mode)
-{
-    switch (mode) {
-    case AUTO:
-    case MANUAL:
-    case SCAN:
-    case SERVO_TEST:
-    case STOP:
-        tracker.set_mode((enum ControlMode)mode, MODE_REASON_GCS_COMMAND);
-        return true;
-    }
-    return false;
 }
 
 // send position tracker is using
@@ -655,3 +631,4 @@ void AP_Camera::send_feedback(mavlink_channel_t chan) {}
 
 // dummy method to avoid linking AFS
 bool AP_AdvancedFailsafe::gcs_terminate(bool should_terminate, const char *reason) {return false;}
+AP_AdvancedFailsafe *AP::advancedfailsafe() { return nullptr; }

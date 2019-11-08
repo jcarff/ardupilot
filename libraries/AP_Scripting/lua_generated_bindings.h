@@ -1,5 +1,8 @@
 #pragma once
 // auto generated bindings, don't manually edit
+#include <SRV_Channel/SRV_Channel.h>
+#include <AP_SerialLED/AP_SerialLED.h>
+#include <AP_Vehicle/AP_Vehicle.h>
 #include <GCS_MAVLink/GCS.h>
 #include <AP_Relay/AP_Relay.h>
 #include <AP_Terrain/AP_Terrain.h>
@@ -13,6 +16,12 @@
 #include <AP_Common/Location.h>
 #include "lua/src/lua.hpp"
 #include <new>
+
+#if !defined(AP_TERRAIN_AVAILABLE) || (AP_TERRAIN_AVAILABLE != 1)
+  #error Scripting requires terrain to be available
+
+#endif // !defined(AP_TERRAIN_AVAILABLE) || (AP_TERRAIN_AVAILABLE != 1)
+
 
 int new_Vector2f(lua_State *L);
 Vector2f * check_Vector2f(lua_State *L, int arg);

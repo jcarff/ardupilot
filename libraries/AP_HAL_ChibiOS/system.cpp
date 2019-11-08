@@ -11,7 +11,7 @@
  *
  * You should have received a copy of the GNU General Public License along
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  * Code by Andrew Tridgell and Siddharth Bharat Purohit
  */
 #include <stdarg.h>
@@ -40,7 +40,7 @@ typedef enum  {
 
 void *__dso_handle;
 
-void __cxa_pure_virtual(void);    
+void __cxa_pure_virtual(void);
 void __cxa_pure_virtual() { while (1); } //TODO: Handle properly, maybe generate a traceback
 
 void NMI_Handler(void);
@@ -51,6 +51,7 @@ void NMI_Handler(void) { while (1); }
  */
 static void save_fault_watchdog(uint16_t line, FaultType fault_type, uint32_t fault_addr)
 {
+#ifndef HAL_BOOTLOADER_BUILD
     bool using_watchdog = AP_BoardConfig::watchdog_enabled();
     if (using_watchdog) {
         AP_HAL::Util::PersistentData &pd = hal.util->persistent_data;
@@ -61,6 +62,7 @@ static void save_fault_watchdog(uint16_t line, FaultType fault_type, uint32_t fa
         pd.fault_icsr = SCB->ICSR;
         stm32_watchdog_save((uint32_t *)&hal.util->persistent_data, (sizeof(hal.util->persistent_data)+3)/4);
     }
+#endif
 }
 
 void HardFault_Handler(void);
