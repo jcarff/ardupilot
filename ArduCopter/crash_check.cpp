@@ -23,8 +23,15 @@ void Copter::crash_check()
         return;
     }
 
+    // exit immediately if in standby
+    if (standby_active) {
+        crash_counter = 0;
+        return;
+    }
+
     // return immediately if we are not in an angle stabilize flight mode or we are flipping
-    if (control_mode == ACRO || control_mode == FLIP || control_mode == FLIPAFTERCRASH) {
+
+    if (control_mode == Mode::Number::ACRO || control_mode == Mode::Number::FLIP|| control_mode == Mode::Number::FLIPAFTERCRASH) {
         crash_counter = 0;
         return;
     }
@@ -70,6 +77,11 @@ void Copter::thrust_loss_check()
     // return immediately if disarmed
     if (!motors->armed() || ap.land_complete) {
         thrust_loss_counter = 0;
+        return;
+    }
+
+    // exit immediately if in standby
+    if (standby_active) {
         return;
     }
 
@@ -142,6 +154,11 @@ void Copter::parachute_check()
         return;
     }
 
+    // exit immediately if in standby
+    if (standby_active) {
+        return;
+    }
+
     // call update to give parachute a chance to move servo or relay back to off position
     parachute.update();
 
@@ -152,7 +169,7 @@ void Copter::parachute_check()
     }
 
     // return immediately if we are not in an angle stabilize flight mode or we are flipping
-    if (control_mode == ACRO || control_mode == FLIP) {
+    if (control_mode == Mode::Number::ACRO || control_mode == Mode::Number::FLIP) {
         control_loss_count = 0;
         return;
     }

@@ -11,7 +11,7 @@
  *
  * You should have received a copy of the GNU General Public License along
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
+ *
  * Code by Andrew Tridgell and Siddharth Bharat Purohit
  */
 #include <AP_HAL/AP_HAL.h>
@@ -55,7 +55,7 @@ static Empty::UARTDriver uartGDriver;
 static Empty::UARTDriver uartHDriver;
 #endif
 
-#if HAL_USE_I2C == TRUE
+#if HAL_USE_I2C == TRUE && defined(HAL_I2C_DEVICE_LIST)
 static ChibiOS::I2CDeviceManager i2cDeviceManager;
 #else
 static Empty::I2CDeviceManager i2cDeviceManager;
@@ -176,17 +176,15 @@ static void main_loop()
     ChibiOS::I2CBus::clear_all();
 #endif
 
-#if STM32_DMA_ADVANCED
     ChibiOS::Shared_DMA::init();
-#endif
     peripheral_power_enable();
-        
+
     hal.uartA->begin(115200);
 
 #ifdef HAL_SPI_CHECK_CLOCK_FREQ
     // optional test of SPI clock frequencies
     ChibiOS::SPIDevice::test_clock_freq();
-#endif 
+#endif
 
     hal.uartB->begin(38400);
     hal.uartC->begin(57600);
@@ -217,6 +215,7 @@ static void main_loop()
         stm32_watchdog_init();
     }
 
+#ifndef HAL_NO_LOGGING
     if (hal.util->was_watchdog_reset()) {
         AP::internalerror().error(AP_InternalError::error_t::watchdog_reset);
         const AP_HAL::Util::PersistentData &pd = last_persistent_data;
@@ -234,7 +233,8 @@ static void main_loop()
                                    pd.fault_thd_prio,
                                    pd.fault_icsr);
     }
-#endif
+#endif // HAL_NO_LOGGING
+#endif // IOMCU_FW
 
     schedulerInstance.watchdog_pat();
 
@@ -242,7 +242,7 @@ static void main_loop()
 
     thread_running = true;
     chRegSetThreadName(SKETCHNAME);
-    
+
     /*
       switch to high priority for main loop
      */
@@ -282,7 +282,7 @@ void HAL_ChibiOS::run(int argc, char * const argv[], Callbacks* callbacks) const
 #ifdef HAL_USB_PRODUCT_ID
   setup_usb_strings();
 #endif
-    
+
 #ifdef HAL_STDOUT_SERIAL
     //STDOUT Initialistion
     SerialConfig stdoutcfg =

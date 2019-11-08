@@ -58,6 +58,9 @@ function run_autotest() {
     if [ $NAME == "Rover" ]; then
         w="$w --enable-math-check-indexes"
     fi
+    if [ "x$CI_BUILD_DEBUG" != "x" ]; then
+        w="$w --debug"
+    fi
     Tools/autotest/autotest.py --waf-configure-args="$w" "$BVEHICLE" "$RVEHICLE"
     ccache -s && ccache -z
 }
@@ -80,8 +83,17 @@ for t in $CI_BUILD_TARGET; do
         run_autotest "Rover" "build.APMrover2" "drive.APMrover2"
         continue
     fi
+    if [ "$t" == "sitltest-balancebot" ]; then
+        run_autotest "BalanceBot" "build.APMrover2" "drive.BalanceBot"
+        continue
+    fi
     if [ "$t" == "sitltest-sub" ]; then
         run_autotest "Sub" "build.ArduSub" "dive.ArduSub"
+        continue
+    fi
+
+    if [ "$t" == "unit-tests" ]; then
+        run_autotest "Unit Tests" "build.unit_tests" "run.unit_tests"
         continue
     fi
 
@@ -93,6 +105,26 @@ for t in $CI_BUILD_TARGET; do
         continue
     fi
 
+    if [ "$t" == "periph-build" ]; then
+        echo "Building f103 bootloader"
+        $waf configure --board f103-GPS --bootloader
+        $waf clean
+        $waf bootloader
+        echo "Building f103 peripheral fw"
+        $waf configure --board f103-GPS
+        $waf clean
+        $waf AP_Periph
+        echo "Building f303 bootloader"
+        $waf configure --board f303-GPS --bootloader
+        $waf clean
+        $waf bootloader
+        echo "Building f303 peripheral fw"
+        $waf configure --board f303-GPS
+        $waf clean
+        $waf AP_Periph
+        continue
+    fi
+    
     if [ "$t" == "CubeOrange-bootloader" ]; then
         echo "Building CubeOrange bootloader"
         $waf configure --board CubeOrange --bootloader

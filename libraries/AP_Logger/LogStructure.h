@@ -223,6 +223,7 @@ struct PACKED log_GPA {
     uint16_t hacc;
     uint16_t vacc;
     uint16_t sacc;
+    float    yaw_accuracy;
     uint8_t  have_vv;
     uint32_t sample_ms;
     uint16_t delta_ms;
@@ -682,6 +683,26 @@ struct PACKED log_Cmd {
     uint8_t frame;
 };
 
+struct PACKED log_MAVLink_Command {
+    LOG_PACKET_HEADER;
+    uint64_t time_us;
+    uint8_t target_system;
+    uint8_t target_component;
+    uint8_t frame;
+    uint16_t command;
+    uint8_t current;
+    uint8_t autocontinue;
+    float param1;
+    float param2;
+    float param3;
+    float param4;
+    int32_t x;
+    int32_t y;
+    float z;
+    uint8_t result;
+    bool was_command_long;
+};
+
 struct PACKED log_Radio {
     LOG_PACKET_HEADER;
     uint64_t time_us;
@@ -1116,6 +1137,8 @@ struct PACKED log_Performance {
     uint32_t internal_error_count;
     uint32_t spi_count;
     uint32_t i2c_count;
+    uint32_t i2c_isr_count;
+    uint32_t extra_loop_us;
 };
 
 struct PACKED log_SRTL {
@@ -1147,6 +1170,7 @@ struct PACKED log_OADijkstra {
     LOG_PACKET_HEADER;
     uint64_t time_us;
     uint8_t state;
+    uint8_t error_id;
     uint8_t curr_point;
     uint8_t tot_points;
     int32_t final_lat;
@@ -1200,10 +1224,10 @@ struct PACKED log_Arm_Disarm {
 #define ESC_UNITS "sqvAO-"
 #define ESC_MULTS "FBBBB-"
 
-#define GPA_LABELS "TimeUS,VDop,HAcc,VAcc,SAcc,VV,SMS,Delta"
-#define GPA_FMT   "QCCCCBIH"
-#define GPA_UNITS "smmmn-ss"
-#define GPA_MULTS "FBBBB-CF"
+#define GPA_LABELS "TimeUS,VDop,HAcc,VAcc,SAcc,YAcc,VV,SMS,Delta"
+#define GPA_FMT   "QCCCCfBIH"
+#define GPA_UNITS "smmmnd-ss"
+#define GPA_MULTS "FBBBB0-CC"
 
 // see "struct GPS_State" and "Write_GPS":
 #define GPS_LABELS "TimeUS,Status,GMS,GWk,NSats,HDop,Lat,Lng,Alt,Spd,GCrs,VZ,Yaw,U"
@@ -1306,6 +1330,8 @@ struct PACKED log_Arm_Disarm {
       "POWR","QffHB","TimeUS,Vcc,VServo,Flags,Safety", "svv--", "F00--" },  \
     { LOG_CMD_MSG, sizeof(log_Cmd), \
       "CMD", "QHHHffffLLfB","TimeUS,CTot,CNum,CId,Prm1,Prm2,Prm3,Prm4,Lat,Lng,Alt,Frame", "s-------DUm-", "F-------GG0-" }, \
+    { LOG_MAVLINK_COMMAND_MSG, sizeof(log_MAVLink_Command), \
+      "MAVC", "QBBBHBBffffiifBB","TimeUS,TS,TC,Fr,Cmd,Cur,AC,P1,P2,P3,P4,X,Y,Z,Res,WL", "s---------------", "F---------------" }, \
     { LOG_RADIO_MSG, sizeof(log_Radio), \
       "RAD", "QBBBBBHH", "TimeUS,RSSI,RemRSSI,TxBuf,Noise,RemNoise,RxErrors,Fixed", "s-------", "F-------" }, \
     { LOG_CAMERA_MSG, sizeof(log_Camera), \
@@ -1365,13 +1391,13 @@ struct PACKED log_Arm_Disarm {
     { LOG_PROXIMITY_MSG, sizeof(log_Proximity), \
       "PRX", "QBfffffffffff", "TimeUS,Health,D0,D45,D90,D135,D180,D225,D270,D315,DUp,CAn,CDis", "s-mmmmmmmmmhm", "F-00000000000" }, \
     { LOG_PERFORMANCE_MSG, sizeof(log_Performance),                     \
-      "PM",  "QHHIIHIIII", "TimeUS,NLon,NLoop,MaxT,Mem,Load,IntErr,IntErrCnt,SPICnt,I2CCnt", "s---b%----", "F---0A----" }, \
+      "PM",  "QHHIIHIIIIII", "TimeUS,NLon,NLoop,MaxT,Mem,Load,IntE,IntEC,SPIC,I2CC,I2CI,ExUS", "s---b%-----s", "F---0A-----F" }, \
     { LOG_SRTL_MSG, sizeof(log_SRTL), \
       "SRTL", "QBHHBfff", "TimeUS,Active,NumPts,MaxPts,Action,N,E,D", "s----mmm", "F----000" }, \
     { LOG_OA_BENDYRULER_MSG, sizeof(log_OABendyRuler), \
       "OABR","QBHHfLLLL","TimeUS,Active,DesYaw,Yaw,Mar,DLat,DLng,OALat,OALng", "sbddmDUDU", "F----GGGG" }, \
     { LOG_OA_DIJKSTRA_MSG, sizeof(log_OADijkstra), \
-      "OADJ","QBBBLLLL","TimeUS,State,CurrPoint,TotPoints,DLat,DLng,OALat,OALng", "sbbbDUDU", "F---GGGG" }
+      "OADJ","QBBBBLLLL","TimeUS,State,Err,CurrPoint,TotPoints,DLat,DLng,OALat,OALng", "sbbbbDUDU", "F----GGGG" }
 
 // messages for more advanced boards
 #define LOG_EXTRA_STRUCTURES \
@@ -1636,6 +1662,7 @@ enum LogMessages : uint8_t {
     LOG_AHR2_MSG,
     LOG_SIMSTATE_MSG,
     LOG_CMD_MSG,
+    LOG_MAVLINK_COMMAND_MSG,
     LOG_RADIO_MSG,
     LOG_ATRP_MSG,
     LOG_CAMERA_MSG,

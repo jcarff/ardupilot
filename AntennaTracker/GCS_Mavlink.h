@@ -18,8 +18,6 @@ protected:
 
     uint8_t sysid_my_gcs() const override;
 
-    bool set_mode(uint8_t mode) override;
-
     MAV_RESULT _handle_command_preflight_calibration_baro() override;
     MAV_RESULT handle_command_long_packet(const mavlink_command_long_t &packet) override;
 
@@ -29,7 +27,6 @@ protected:
 
     bool set_home_to_current_location(bool lock) override WARN_IF_UNUSED;
     bool set_home(const Location& loc, bool lock) override WARN_IF_UNUSED;
-    uint64_t capabilities() const override;
 
     void send_nav_controller_output() const override;
     void send_pid_tuning() override;

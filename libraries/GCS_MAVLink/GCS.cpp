@@ -1,10 +1,12 @@
 #include "GCS.h"
 
+#include <AC_Fence/AC_Fence.h>
 #include <AP_BoardConfig/AP_BoardConfig.h>
 #include <AP_Logger/AP_Logger.h>
 #include <AP_BattMonitor/AP_BattMonitor.h>
 #include <AP_Scheduler/AP_Scheduler.h>
 #include <AP_Baro/AP_Baro.h>
+#include <AP_AHRS/AP_AHRS.h>
 
 extern const AP_HAL::HAL& hal;
 
@@ -21,10 +23,12 @@ void GCS::get_sensor_status_flags(uint32_t &present,
 
 MissionItemProtocol_Waypoints *GCS::_missionitemprotocol_waypoints;
 MissionItemProtocol_Rally *GCS::_missionitemprotocol_rally;
+MissionItemProtocol_Fence *GCS::_missionitemprotocol_fence;
 
 const MAV_MISSION_TYPE GCS_MAVLINK::supported_mission_types[] = {
     MAV_MISSION_TYPE_MISSION,
     MAV_MISSION_TYPE_RALLY,
+    MAV_MISSION_TYPE_FENCE,
 };
 
 /*
@@ -67,7 +71,7 @@ void GCS::send_to_active_channels(uint32_t msgid, const char *pkt)
 void GCS::send_named_float(const char *name, float value) const
 {
 
-    mavlink_named_value_float_t packet;
+    mavlink_named_value_float_t packet {};
     packet.time_boot_ms = AP_HAL::millis();
     packet.value = value;
     memcpy(packet.name, name, MIN(strlen(name), (uint8_t)MAVLINK_MSG_NAMED_VALUE_FLOAT_FIELD_NAME_LEN));
@@ -176,6 +180,19 @@ void GCS::update_sensor_status_flags()
     }
 #endif
 
+    const AC_Fence *fence = AP::fence();
+    if (fence != nullptr) {
+        if (fence->sys_status_enabled()) {
+            control_sensors_enabled |= MAV_SYS_STATUS_GEOFENCE;
+        }
+        if (fence->sys_status_present()) {
+            control_sensors_present |= MAV_SYS_STATUS_GEOFENCE;
+        }
+        if (!fence->sys_status_failed()) {
+            control_sensors_health |= MAV_SYS_STATUS_GEOFENCE;
+        }
+    }
+
     update_vehicle_sensor_status_flags();
 }
 
@@ -187,7 +204,7 @@ bool GCS::out_of_time() const
     }
 
     // we always want to be able to send messages out while in the error loop:
-    if (AP_BoardConfig::in_sensor_config_error()) {
+    if (AP_BoardConfig::in_config_error()) {
         return false;
     }
 

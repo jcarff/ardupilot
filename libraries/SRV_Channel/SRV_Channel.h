@@ -143,6 +143,14 @@ public:
         k_scripting14           = 107,
         k_scripting15           = 108,
         k_scripting16           = 109,
+        k_LED_neopixel1         = 120,
+        k_LED_neopixel2         = 121,
+        k_LED_neopixel3         = 122,
+        k_LED_neopixel4         = 123,
+        k_roll_out              = 124,
+        k_pitch_out             = 125,
+        k_thrust_out            = 126,
+        k_yaw_out               = 127,
         k_nr_aux_servo_functions         ///< This must be the last enum value (only add new values _before_ this one)
     } Aux_servo_function_t;
 
@@ -478,6 +486,11 @@ public:
 
     // get E - stop
     static bool get_emergency_stop() { return emergency_stop;}
+
+    // singleton for Lua
+    static SRV_Channels *get_singleton(void) {
+        return _singleton;
+    }
 
 private:
     struct {

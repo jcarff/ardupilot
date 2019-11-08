@@ -40,13 +40,16 @@ void Sub::init_ardupilot()
     switch (AP_BoardConfig::get_board_type()) {
     case AP_BoardConfig::PX4_BOARD_PIXHAWK2:
         AP_Param::set_by_name("GND_EXT_BUS", 0);
+        celsius.init(0);
         break;
     default:
         AP_Param::set_by_name("GND_EXT_BUS", 1);
+        celsius.init(1);
         break;
     }
 #else
     AP_Param::set_default_by_name("GND_EXT_BUS", 1);
+    celsius.init(1);
 #endif
 
     // identify ourselves correctly with the ground station
@@ -63,6 +66,10 @@ void Sub::init_ardupilot()
     g2.gripper.init();
 #endif
 
+#if AC_FENCE == ENABLED
+    fence.init();
+#endif
+
     // initialise notify system
     notify.init();
 
@@ -70,8 +77,6 @@ void Sub::init_ardupilot()
     battery.init();
 
     barometer.init();
-
-    celsius.init();
 
     // Register the mavlink service callback. This will run
     // anytime there are more than 5ms remaining in a call to
@@ -127,7 +132,7 @@ void Sub::init_ardupilot()
 
 #if MOUNT == ENABLED
     // initialise camera mount
-    camera_mount.init(serial_manager);
+    camera_mount.init();
 #endif
 
 #ifdef USERHOOK_INIT

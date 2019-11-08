@@ -15,9 +15,11 @@
 #include <AP_Common/Bitmask.h>
 #include <AP_Devo_Telem/AP_Devo_Telem.h>
 #include <RC_Channel/RC_Channel.h>
+#include <AP_Filesystem/AP_Filesystem_Available.h>
 
 #include "MissionItemProtocol_Waypoints.h"
 #include "MissionItemProtocol_Rally.h"
+#include "MissionItemProtocol_Fence.h"
 #include "ap_message.h"
 
 #define GCS_DEBUG_SEND_MESSAGE_TIMINGS 0
@@ -67,7 +69,6 @@ public:
     bool        init(uint8_t instance);
     void        send_message(enum ap_message id);
     void        send_text(MAV_SEVERITY severity, const char *fmt, ...) const FMT_PRINTF(3, 4);
-    void        send_textv(MAV_SEVERITY severity, const char *fmt, va_list arg_list) const;
     void        queued_param_send();
     void        queued_mission_request_send();
 
@@ -86,7 +87,7 @@ public:
                                      mission_type);
     }
 
-    static const MAV_MISSION_TYPE supported_mission_types[2];
+    static const MAV_MISSION_TYPE supported_mission_types[3];
 
     // packetReceived is called on any successful decode of a mavlink message
     virtual void packetReceived(const mavlink_status_t &status,
@@ -210,10 +211,12 @@ public:
     virtual void send_position_target_local_ned() { };
     void send_servo_output_raw();
     void send_accelcal_vehicle_position(uint32_t position);
-    void send_scaled_imu(uint8_t instance, void (*send_fn)(mavlink_channel_t chan, uint32_t time_ms, int16_t xacc, int16_t yacc, int16_t zacc, int16_t xgyro, int16_t ygyro, int16_t zgyro, int16_t xmag, int16_t ymag, int16_t zmag));
+    void send_scaled_imu(uint8_t instance, void (*send_fn)(mavlink_channel_t chan, uint32_t time_ms, int16_t xacc, int16_t yacc, int16_t zacc, int16_t xgyro, int16_t ygyro, int16_t zgyro, int16_t xmag, int16_t ymag, int16_t zmag, int16_t temperature));
     void send_sys_status();
     void send_set_position_target_global_int(uint8_t target_system, uint8_t target_component, const Location& loc);
     void send_rpm() const;
+
+    bool locked() const;
 
     // return a bitmap of active channels. Used by libraries to loop
     // over active channels to send to all active channels    
@@ -271,6 +274,8 @@ public:
     virtual uint64_t capabilities() const;
     uint8_t get_stream_slowdown_ms() const { return stream_slowdown_ms; }
 
+    MAV_RESULT set_message_interval(uint32_t msg_id, int32_t interval_us);
+
 protected:
 
     virtual bool in_hil_mode() const { return false; }
@@ -281,8 +286,6 @@ protected:
     // overridable method to check for packet acceptance. Allows for
     // enforcement of GCS sysid
     bool accept_packet(const mavlink_status_t &status, const mavlink_message_t &msg);
-    virtual AP_AdvancedFailsafe *get_advanced_failsafe() const { return nullptr; };
-    virtual bool set_mode(uint8_t mode) = 0;
     void set_ekf_origin(const Location& loc);
 
     virtual MAV_MODE base_mode() const = 0;
@@ -347,7 +350,7 @@ protected:
     void handle_set_gps_global_origin(const mavlink_message_t &msg);
     void handle_setup_signing(const mavlink_message_t &msg);
     virtual bool should_zero_rc_outputs_on_reboot() const { return false; }
-    MAV_RESULT handle_preflight_reboot(const mavlink_command_long_t &packet);
+    virtual MAV_RESULT handle_preflight_reboot(const mavlink_command_long_t &packet);
 
     // reset a message interval via mavlink:
     MAV_RESULT handle_command_set_message_interval(const mavlink_command_long_t &packet);
@@ -447,6 +450,9 @@ private:
     virtual void        handleMessage(const mavlink_message_t &msg) = 0;
 
     MAV_RESULT handle_servorelay_message(const mavlink_command_long_t &packet);
+
+    static bool command_long_stores_location(const MAV_CMD command);
+    static void convert_COMMAND_LONG_to_COMMAND_INT(const mavlink_command_long_t &in, mavlink_command_int_t &out);
 
     bool calibrate_gyros();
 
@@ -607,6 +613,84 @@ private:
 
     uint8_t send_parameter_async_replies();
 
+#if HAVE_FILESYSTEM_SUPPORT
+
+    enum class FTP_OP : uint8_t {
+        None = 0,
+        TerminateSession = 1,
+        ResetSessions = 2,
+        ListDirectory = 3,
+        OpenFileRO = 4,
+        ReadFile = 5,
+        CreateFile = 6,
+        WriteFile = 7,
+        RemoveFile = 8,
+        CreateDirectory = 9,
+        RemoveDirectory = 10,
+        OpenFileWO = 11,
+        TruncateFile = 12,
+        Rename = 13,
+        CalcFileCRC32 = 14,
+        BurstReadFile = 15,
+        Ack = 128,
+        Nack = 129,
+    };
+
+    enum class FTP_ERROR : uint8_t {
+        None = 0,
+        Fail = 1,
+        FailErrno = 2,
+        InvalidDataSize = 3,
+        InvalidSession = 4,
+        NoSessionsAvailable = 5,
+        EndOfFile = 6,
+        UnknownCommand = 7,
+        FileExists = 8,
+        FileProtected = 9,
+        FileNotFound = 10,
+    };
+
+    struct pending_ftp {
+        uint32_t offset;
+        mavlink_channel_t chan;        
+        uint16_t seq_number;
+        FTP_OP opcode;
+        FTP_OP req_opcode;
+        bool  burst_complete;
+        uint8_t size;
+        uint8_t session;
+        uint8_t sysid;
+        uint8_t compid;
+        uint8_t data[239];
+    };
+
+    enum class FTP_FILE_MODE {
+        Read,
+        Write,
+    };
+
+    struct ftp_state {
+        ObjectBuffer<pending_ftp> *requests;
+        ObjectBuffer<pending_ftp> *replies;
+
+        // session specific info, currently only support a single session over all links
+        int fd = -1;
+        FTP_FILE_MODE mode; // work around AP_Filesystem not supporting file modes
+        int16_t current_session;
+    };
+    static struct ftp_state ftp;
+
+    static void ftp_error(struct pending_ftp &response, FTP_ERROR error); // FTP helper method for packing a NAK
+    static int gen_dir_entry(char *dest, size_t space, const char * path, const struct dirent * entry); // FTP helper for emitting a dir response
+    static void ftp_list_dir(struct pending_ftp &request, struct pending_ftp &response);
+
+    bool ftp_init(void);
+    void handle_file_transfer_protocol(const mavlink_message_t &msg);
+    void send_ftp_replies(void);
+    void ftp_worker(void);
+    void ftp_push_replies(pending_ftp &reply);
+#endif // HAVE_FILESYSTEM_SUPPORT
+
     void send_distance_sensor(const class AP_RangeFinder_Backend *sensor, const uint8_t instance) const;
 
     virtual bool handle_guided_request(AP_Mission::Mission_Command &cmd) = 0;
@@ -626,6 +710,7 @@ private:
                                                      const float yaw,
                                                      const uint16_t payload_size);
     void log_vision_position_estimate_data(const uint64_t usec,
+                                           const uint32_t corrected_msec,
                                            const float x,
                                            const float y,
                                            const float z,
@@ -736,6 +821,7 @@ public:
 
     static MissionItemProtocol_Waypoints *_missionitemprotocol_waypoints;
     static MissionItemProtocol_Rally *_missionitemprotocol_rally;
+    static MissionItemProtocol_Fence *_missionitemprotocol_fence;
     MissionItemProtocol *get_prot_for_mission_type(const MAV_MISSION_TYPE mission_type) const;
     void try_send_queued_message_for_type(MAV_MISSION_TYPE type);
 
@@ -758,8 +844,10 @@ public:
     // frsky backend
     AP_Frsky_Telem *frsky;
 
+#if !HAL_MINIMIZE_FEATURES
     // Devo backend
     AP_DEVO_Telem devo_telemetry;
+#endif
 
     // install an alternative protocol handler
     bool install_alternative_protocol(mavlink_channel_t chan, GCS_MAVLINK::protocol_handler_fn_t handler);
@@ -775,6 +863,12 @@ public:
 
     virtual bool simple_input_active() const { return false; }
     virtual bool supersimple_input_active() const { return false; }
+
+    // set message interval for a given serial port and message id
+    // this function is for use by lua scripts, most consumers should use the channel level function
+    MAV_RESULT set_message_interval(uint8_t port_num, uint32_t msg_id, int32_t interval_us);
+
+    uint8_t get_channel_from_port_number(uint8_t port_num);
 
 protected:
 
@@ -804,7 +898,7 @@ private:
 
     void update_sensor_status_flags();
 
-#if HAL_CPU_CLASS <= HAL_CPU_CLASS_150 || CONFIG_HAL_BOARD == HAL_BOARD_SITL
+#if HAL_MEM_CLASS <= HAL_MEM_CLASS_192 || CONFIG_HAL_BOARD == HAL_BOARD_SITL
     static const uint8_t _status_capacity = 5;
 #else
     static const uint8_t _status_capacity = 30;

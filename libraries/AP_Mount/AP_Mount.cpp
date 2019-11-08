@@ -393,8 +393,7 @@ const AP_Param::GroupInfo AP_Mount::var_info[] = {
     AP_GROUPEND
 };
 
-AP_Mount::AP_Mount(const struct Location &current_loc) :
-    _current_loc(current_loc)
+AP_Mount::AP_Mount()
 {
     if (_singleton != nullptr) {
 #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
@@ -408,7 +407,7 @@ AP_Mount::AP_Mount(const struct Location &current_loc) :
 }
 
 // init - detect and initialise all mounts
-void AP_Mount::init(const AP_SerialManager& serial_manager)
+void AP_Mount::init()
 {
     // check init has not been called before
     if (_num_instances != 0) {
@@ -466,7 +465,7 @@ void AP_Mount::init(const AP_SerialManager& serial_manager)
 
         // init new instance
         if (_backends[instance] != nullptr) {
-            _backends[instance]->init(serial_manager);
+            _backends[instance]->init();
             if (!primary_set) {
                 _primary = instance;
                 primary_set = true;

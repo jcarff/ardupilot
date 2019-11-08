@@ -44,7 +44,7 @@ public:
     static const struct AP_Param::GroupInfo var_info2[];
 
     void control_run(void);
-    void control_auto(const Location &loc);
+    void control_auto(void);
     bool init_mode(void);
     bool setup(void);
 
@@ -414,6 +414,9 @@ private:
     // time of last control log message
     uint32_t last_ctrl_log_ms;
 
+    // time of last QTUN log message
+    uint32_t last_qtun_log_ms;
+
     // types of tilt mechanisms
     enum {TILT_TYPE_CONTINUOUS    =0,
           TILT_TYPE_BINARY        =1,
@@ -511,6 +514,11 @@ private:
         OPTION_FS_QRTL=(1<<5),
     };
 
+    AP_Float takeoff_failure_scalar;
+    AP_Float maximum_takeoff_airspeed;
+    uint32_t takeoff_start_time_ms;
+    uint32_t takeoff_time_limit_ms;
+
     /*
       return true if current mission item is a vtol takeoff
      */
@@ -535,6 +543,11 @@ private:
       are we in the descent phase of a VTOL landing?
      */
     bool in_vtol_land_descent(void) const;
+
+    /*
+      are we in the final landing phase of a VTOL landing?
+     */
+    bool in_vtol_land_final(void) const;
     
 public:
     void motor_test_output();

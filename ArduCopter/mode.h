@@ -2,9 +2,41 @@
 
 #include "Copter.h"
 
+class Parameters;
+class ParametersG2;
+
+class GCS_Copter;
+
 class Mode {
 
 public:
+
+    // Auto Pilot Modes enumeration
+    enum class Number : uint8_t {
+        STABILIZE =     0,  // manual airframe angle with manual throttle
+        ACRO =          1,  // manual body-frame angular rate with manual throttle
+        ALT_HOLD =      2,  // manual airframe angle with automatic throttle
+        AUTO =          3,  // fully automatic waypoint control using mission commands
+        GUIDED =        4,  // fully automatic fly to coordinate or fly at velocity/direction using GCS immediate commands
+        LOITER =        5,  // automatic horizontal acceleration with automatic throttle
+        RTL =           6,  // automatic return to launching point
+        CIRCLE =        7,  // automatic circular flight with automatic throttle
+        LAND =          9,  // automatic landing with horizontal position control
+        DRIFT =        11,  // semi-automous position, yaw and throttle control
+        SPORT =        13,  // manual earth-frame angular rate control with manual throttle
+        FLIP =         14,  // automatically flip the vehicle on the roll axis
+        AUTOTUNE =     15,  // automatically tune the vehicle's roll and pitch gains
+        POSHOLD =      16,  // automatic position hold with manual override, with automatic throttle
+        BRAKE =        17,  // full-brake using inertial/GPS system, no pilot input
+        THROW =        18,  // throw to launch mode using inertial/GPS system, no pilot input
+        AVOID_ADSB =   19,  // automatic avoidance of obstacles in the macro scale - e.g. full-sized aircraft
+        GUIDED_NOGPS = 20,  // guided mode but only accepts attitude and altitude
+        SMART_RTL =    21,  // SMART_RTL returns to home by retracing its steps
+        FLOWHOLD  =    22,  // FLOWHOLD holds position with optical flow without rangefinder
+        FOLLOW    =    23,  // follow attempts to follow another vehicle or ground station
+        ZIGZAG    =    24,  // ZIGZAG mode is able to fly in a zigzag manner with predefined point A and point B
+        SYSTEMID  =    25,  // System ID mode produces automated system identification signals in the controllers
+    };
 
     // constructor
     Mode(void);
@@ -24,6 +56,7 @@ public:
     virtual bool is_autopilot() const { return false; }
     virtual bool has_user_takeoff(bool must_navigate) const { return false; }
     virtual bool in_guided_mode() const { return false; }
+    virtual bool logs_attitude() const { return false; }
 
     // return a string for this flightmode
     virtual const char *name() const = 0;
@@ -205,10 +238,9 @@ public:
     float get_pilot_desired_climb_rate(float throttle_control);
     float get_non_takeoff_throttle(void);
     void update_simple_mode(void);
-    bool set_mode(control_mode_t mode, mode_reason_t reason);
+    bool set_mode(Mode::Number mode, ModeReason reason);
     void set_land_complete(bool b);
     GCS_Copter &gcs();
-    void Log_Write_Event(Log_Event id);
     void set_throttle_takeoff(void);
     float get_avoidance_adjusted_climbrate(float target_rate);
     uint16_t get_pilot_speed_dn(void);
@@ -224,6 +256,12 @@ public:
     // inherit constructor
     using Mode::Mode;
 
+    enum class Trainer {
+        OFF = 0,
+        LEVELING = 1,
+        LIMITED = 2,
+    };
+
     virtual void run() override;
 
     bool requires_GPS() const override { return false; }
@@ -238,12 +276,7 @@ protected:
 
     void get_pilot_desired_angle_rates(int16_t roll_in, int16_t pitch_in, int16_t yaw_in, float &roll_out, float &pitch_out, float &yaw_out);
 
-    float throttle_hover() const override {
-        if (g2.acro_thr_mid > 0) {
-            return g2.acro_thr_mid;
-        }
-        return Mode::throttle_hover();
-    }
+    float throttle_hover() const override;
 
 private:
 
@@ -481,7 +514,6 @@ protected:
     float get_pilot_desired_climb_rate_cms(void) const override;
     void get_pilot_desired_rp_yrate_cd(float &roll_cd, float &pitch_cd, float &yaw_rate_cds) override;
     void init_z_limits() override;
-    void Log_Write_Event(enum at_event id) override;
     void log_pids() override;
 };
 
@@ -630,7 +662,7 @@ private:
         Abandon
     };
     FlipState _state;               // current state of flip
-    control_mode_t   orig_control_mode;   // flight mode when flip was initated
+    Mode::Number   orig_control_mode;   // flight mode when flip was initated
     uint32_t  start_time_ms;          // time since flip began
     int8_t    roll_dir;            // roll direction (-1 = roll left, 1 = roll right)
     int8_t    pitch_dir;           // pitch direction (-1 = pitch forward, 1 = pitch back)
@@ -1169,6 +1201,71 @@ private:
 };
 #endif
 
+class ModeSystemId : public Mode {
+
+public:
+    ModeSystemId(void);
+
+    bool init(bool ignore_checks) override;
+    void run() override;
+
+    bool requires_GPS() const override { return true; }
+    bool has_manual_throttle() const override { return false; }
+    bool allows_arming(bool from_gcs) const override { return true; };
+    bool is_autopilot() const override { return false; }
+    bool logs_attitude() const override { return true; }
+    void set_magnitude(float input) { waveform_magnitude = input; }
+
+    static const struct AP_Param::GroupInfo var_info[];
+
+protected:
+
+    const char *name() const override { return "SYSTEMID"; }
+    const char *name4() const override { return "SYSI"; }
+
+private:
+
+    void log_data();
+    float waveform(float time);
+
+    enum class AxisType {
+        NONE = 0,           // none
+        INPUT_ROLL = 1,     // angle input roll axis is being excited
+        INPUT_PITCH = 2,    // angle pitch axis is being excited
+        INPUT_YAW = 3,      // angle yaw axis is being excited
+        RECOVER_ROLL = 4,   // angle roll axis is being excited
+        RECOVER_PITCH = 5,  // angle pitch axis is being excited
+        RECOVER_YAW = 6,    // angle yaw axis is being excited
+        RATE_ROLL = 7,      // rate roll axis is being excited
+        RATE_PITCH = 8,     // rate pitch axis is being excited
+        RATE_YAW = 9,       // rate yaw axis is being excited
+        MIX_ROLL = 10,      // mixer roll axis is being excited
+        MIX_PITCH = 11,     // mixer pitch axis is being excited
+        MIX_YAW = 12,       // mixer pitch axis is being excited
+        MIX_THROTTLE = 13,  // mixer throttle axis is being excited
+    };
+
+    AP_Int8 axis;               // Controls which axis are being excited
+    AP_Float waveform_magnitude;// Magnitude of chirp waveform
+    AP_Float frequency_start;   // Frequency at the start of the chirp
+    AP_Float frequency_stop;    // Frequency at the end of the chirp
+    AP_Float time_fade_in;      // Time to reach maximum amplitude of chirp
+    AP_Float time_record;       // Time taken to complete the chirp waveform
+    AP_Float time_fade_out;     // Time to reach zero amplitude after chirp finishes
+
+    bool att_bf_feedforward;    // Setting of attitude_control->get_bf_feedforward
+    float waveform_time;        // Time reference for waveform
+    float waveform_sample;      // Current waveform sample
+    float waveform_freq_rads;   // Instantaneous waveform frequency
+    float time_const_freq;      // Time at constant frequency before chirp starts
+    int8_t log_subsample;       // Subsample multiple for logging.
+
+    // System ID states
+    enum class SystemIDModeState {
+        SYSTEMID_STATE_STOPPED,
+        SYSTEMID_STATE_TESTING
+    } systemid_state;
+};
 
 class ModeThrow : public Mode {
 
@@ -1254,6 +1351,7 @@ public:
     using ModeGuided::Mode;
 
     bool init(bool ignore_checks) override;
+    void exit();
     void run() override;
 
     bool requires_GPS() const override { return true; }
