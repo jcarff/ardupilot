@@ -153,11 +153,10 @@ public:
                                          bool extrapolate = false);
 
     /* 
-       return current height above terrain at current AHRS
-       position. 
+       return current height above terrain at current AHRS position.
 
        If extrapolate is true then extrapolate from most recently
-       available terrain data is terrain data is not available for the
+       available terrain data if terrain data is not available for the
        current location.
 
        Return true if height is available, otherwise false.
@@ -178,7 +177,12 @@ public:
     /*
       get some statistics for TERRAIN_REPORT
      */
-    void get_statistics(uint16_t &pending, uint16_t &loaded);
+    void get_statistics(uint16_t &pending, uint16_t &loaded) const;
+
+    /*
+      returns true if initialisation failed because out-of-memory
+     */
+    bool init_failed() const { return memory_alloc_failed; }
 
 private:
     // allocate the terrain subsystem data
@@ -309,7 +313,7 @@ private:
     /*
       get some statistics for TERRAIN_REPORT
      */
-    uint8_t bitcount64(uint64_t b);
+    uint8_t bitcount64(uint64_t b) const;
 
     /*
       disk IO functions
@@ -414,6 +418,9 @@ private:
 
     // status
     enum TerrainStatus system_status = TerrainStatusDisabled;
+
+    // memory allocation status
+    bool memory_alloc_failed;
 
     static AP_Terrain *singleton;
 };
