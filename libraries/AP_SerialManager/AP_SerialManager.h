@@ -52,6 +52,10 @@
 #define AP_SERIALMANAGER_MAVLINK_BUFSIZE_RX     128
 #define AP_SERIALMANAGER_MAVLINK_BUFSIZE_TX     256
 
+// LTM buffer sizes
+#define AP_SERIALMANAGER_LTM_BUFSIZE_RX         0
+#define AP_SERIALMANAGER_LTM_BUFSIZE_TX         32
+
 // FrSky default baud rates, use default buffer sizes
 #define AP_SERIALMANAGER_FRSKY_D_BAUD           9600
 #define AP_SERIALMANAGER_FRSKY_SPORT_BAUD       57600
@@ -128,7 +132,8 @@ public:
         SerialProtocol_WindVane = 21,
         SerialProtocol_SLCAN = 22,
         SerialProtocol_RCIN = 23,
-        SerialProtocol_EFI_MS = 24                   // MegaSquirt EFI serial protocol
+        SerialProtocol_EFI_MS = 24,                   // MegaSquirt EFI serial protocol
+        SerialProtocol_LTM_Telem = 25,
     };
 
     // get singleton instance
@@ -176,6 +181,8 @@ public:
     // accessors for AP_Periph to set baudrate and type
     void set_protocol_and_baud(uint8_t sernum, enum SerialProtocol protocol, uint32_t baudrate);
 
+    static uint32_t map_baudrate(int32_t rate);
+
     // parameter var table
     static const struct AP_Param::GroupInfo var_info[];
 
@@ -199,8 +206,6 @@ private:
     // instance-nth UART which is running protocol protocol
     const UARTState *find_protocol_instance(enum SerialProtocol protocol,
                                       uint8_t instance) const;
-
-    uint32_t map_baudrate(int32_t rate) const;
 
     // protocol_match - returns true if the protocols match
     bool protocol_match(enum SerialProtocol protocol1, enum SerialProtocol protocol2) const;
