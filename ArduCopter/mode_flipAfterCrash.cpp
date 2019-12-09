@@ -40,52 +40,61 @@ void ModeFlipAfterCrash::run() {
     int16_t pwm = 0;   // pwm that will be output to the motors
     int8_t motor1 = 1;
     int8_t motor2 = 2;
-    int8_t motor3 = 1;
-    int8_t motor4 = 2;
+    int8_t motor3 = 3;
+    int8_t motor4 = 4;
 
     // choose direction based on pilot's roll and pitch sticks
-    if (channel_pitch->get_control_in() > 100) {
+    if (channel_pitch->get_control_in() > 50) {
         pwm = channel_pitch->get_radio_in();
+        gcs().send_text(MAV_SEVERITY_INFO, ("motorsOn1 %d"), pwm);
+
         motor1 = 1;
-        motor2 = 2;
-        motor3 = 3;
+        motor2 = 4;
+        motor3 = 2;
+        motor4 = 3;
+        turnOnMotors = true;
+
+    } else if (channel_pitch->get_control_in() < -50) {
+        pwm = channel_pitch->get_radio_in();
+        gcs().send_text(MAV_SEVERITY_INFO, ("motorsOn2 %d"), pwm);
+
+        motor1 = 2;
+        motor2 = 3;
+        motor3 = 1;
         motor4 = 4;
         turnOnMotors = true;
 
-    } else if (channel_pitch->get_control_in() < -100) {
-        pwm = channel_pitch->get_radio_in();
+    } else if (channel_roll->get_control_in() < -50) {
+        gcs().send_text(MAV_SEVERITY_INFO, ("motorsOn3 %d"), pwm);
+
+        pwm = channel_roll->get_radio_in();
         motor1 = 3;
         motor2 = 4;
         motor3 = 1;
         motor4 = 2;
         turnOnMotors = true;
 
-    } else if (channel_roll->get_control_in() > 100) {
-        pwm = channel_roll->get_radio_in();
-        motor1 = 2;
-        motor2 = 4;
-        motor3 = 1;
-        motor4 = 3;
-        turnOnMotors = true;
+    } else if (channel_roll->get_control_in() > 50) {
+        gcs().send_text(MAV_SEVERITY_INFO, ("motorsOn4 %d"), pwm);
 
-    } else if (channel_roll->get_control_in() < -100) {
         pwm = channel_roll->get_radio_in();
-        motor1 = 3;
-        motor2 = 1;
-        motor3 = 2;
+        motor1 = 1;
+        motor2 = 2;
+        motor3 = 3;
         motor4 = 4;
         turnOnMotors = true;
 
     }
 
     pwm = constrain_int16(pwm, 1000, 2000);
-    uint16_t value = 2 * (pwm - 1000);
+    //uint16_t value = 2 * (pwm - 1000);
+    uint16_t value = pwm;
 
     // this is a DShot-3D output, map so that 1500 PWM is zero throttle reversed
-    if (value < 1000) {
-        value = 2000 - value;
-    } else if (value > 1000) {
-        value = value - 1000;
+    if (value >1500) {
+        value = value;
+    } else if (value < 1500) {
+        value =  2000 - pwm + 1000;
     } else {
         // mid-throttle is off
         value = 0;
@@ -99,28 +108,24 @@ void ModeFlipAfterCrash::run() {
     //  if (pwm >= MOTOR_TEST_PWM_MIN && pwm <= MOTOR_TEST_PWM_MAX) {
     //if (motors->armed()) {
         if (turnOnMotors) {
-            gcs().send_text(MAV_SEVERITY_INFO, "motorsOn");
+            gcs().send_text(MAV_SEVERITY_INFO, ("motorValue %d"), value);
 
             // turn on motor to specified pwm value
-            motors->output_test_seq(motor1, 48);
-            motors->output_test_seq(motor2, 0);
-            motors->output_test_seq(motor3, 0);
-            motors->output_test_seq(motor4, 0);
+            motors->output_test_seq(motor1, value);
+            motors->output_test_seq(motor2, value);
+            motors->output_test_seq(motor3, 47);
+            motors->output_test_seq(motor4, 47);
         }
-      //  else
-      //  {
-      //      motors->output_test_seq(motor1, 0);
-      //      motors->output_test_seq(motor2, 0);
-      //      motors->output_test_seq(motor3, 0);
-      //      motors->output_test_seq(motor4, 0);
-      //  }
+        else
+        {
+            motors->output_test_seq(motor1, 47);
+            motors->output_test_seq(motor2, 47);
+            motors->output_test_seq(motor3, 47);
+            motors->output_test_seq(motor4, 47);
+        }
    // }
    // }
-else {
-        gcs().send_text(MAV_SEVERITY_INFO, "motors off");
 
-        motors->output_min();
-     }
 }
 
 void ModeFlipAfterCrash::stop() {

@@ -24,7 +24,7 @@ public:
         LAND =          9,  // automatic landing with horizontal position control
         DRIFT =        11,  // semi-automous position, yaw and throttle control
         SPORT =        13,  // manual earth-frame angular rate control with manual throttle
-        FLIP =         14,  // automatically flip the vehicle on the roll axis
+        FLIP =         26,  // automatically flip the vehicle on the roll axis
         AUTOTUNE =     15,  // automatically tune the vehicle's roll and pitch gains
         POSHOLD =      16,  // automatic position hold with manual override, with automatic throttle
         BRAKE =        17,  // full-brake using inertial/GPS system, no pilot input
@@ -36,7 +36,7 @@ public:
         FOLLOW    =    23,  // follow attempts to follow another vehicle or ground station
         ZIGZAG    =    24,  // ZIGZAG mode is able to fly in a zigzag manner with predefined point A and point B
         SYSTEMID  =    25,  // System ID mode produces automated system identification signals in the controllers
-        FLIPAFTERCRASH  =    26,  // System ID mode produces automated system identification signals in the controllers
+        FLIPAFTERCRASH  =    14,  // System ID mode produces automated system identification signals in the controllers
 
     };
 
