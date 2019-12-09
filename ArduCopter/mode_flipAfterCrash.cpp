@@ -46,7 +46,6 @@ void ModeFlipAfterCrash::run() {
     // choose direction based on pilot's roll and pitch sticks
     if (channel_pitch->get_control_in() > 50) {
         pwm = channel_pitch->get_radio_in();
-        gcs().send_text(MAV_SEVERITY_INFO, ("motorsOn1 %d"), pwm);
 
         motor1 = 1;
         motor2 = 4;
@@ -56,7 +55,6 @@ void ModeFlipAfterCrash::run() {
 
     } else if (channel_pitch->get_control_in() < -50) {
         pwm = channel_pitch->get_radio_in();
-        gcs().send_text(MAV_SEVERITY_INFO, ("motorsOn2 %d"), pwm);
 
         motor1 = 2;
         motor2 = 3;
@@ -65,7 +63,6 @@ void ModeFlipAfterCrash::run() {
         turnOnMotors = true;
 
     } else if (channel_roll->get_control_in() < -50) {
-        gcs().send_text(MAV_SEVERITY_INFO, ("motorsOn3 %d"), pwm);
 
         pwm = channel_roll->get_radio_in();
         motor1 = 3;
@@ -75,7 +72,6 @@ void ModeFlipAfterCrash::run() {
         turnOnMotors = true;
 
     } else if (channel_roll->get_control_in() > 50) {
-        gcs().send_text(MAV_SEVERITY_INFO, ("motorsOn4 %d"), pwm);
 
         pwm = channel_roll->get_radio_in();
         motor1 = 1;
@@ -108,7 +104,6 @@ void ModeFlipAfterCrash::run() {
     //  if (pwm >= MOTOR_TEST_PWM_MIN && pwm <= MOTOR_TEST_PWM_MAX) {
     //if (motors->armed()) {
         if (turnOnMotors) {
-            gcs().send_text(MAV_SEVERITY_INFO, ("motorValue %d"), value);
 
             // turn on motor to specified pwm value
             motors->output_test_seq(motor1, value);
