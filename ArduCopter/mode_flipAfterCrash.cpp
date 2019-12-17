@@ -17,11 +17,11 @@ bool ModeFlipAfterCrash::init(bool ignore_checks) {
         return false;
     }
 
-    //  if (!motors->armed()) {
-    // init_rc_out();
-    // enable_motor_output();
-    //     motors->armed(true);
-    // }
+      if (!motors->armed()) {
+     //init_rc_out();
+     //enable_motor_output();
+         motors->armed(true);
+     }
 
     // disable throttle and gps failsafe
     g.failsafe_throttle = FS_THR_DISABLED;
