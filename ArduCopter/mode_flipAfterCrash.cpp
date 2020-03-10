@@ -44,7 +44,7 @@ void ModeFlipAfterCrash::run() {
     int8_t motor4 = 4;
 
     // choose direction based on pilot's roll and pitch sticks
-    if (channel_pitch->get_control_in() > 50) {
+    if (channel_pitch->get_control_in() > 50 && channel_pitch->get_control_in() > abs(channel_roll->get_control_in())) {
         pwm = channel_pitch->get_radio_in();
 
         motor1 = 1;
@@ -53,7 +53,7 @@ void ModeFlipAfterCrash::run() {
         motor4 = 3;
         turnOnMotors = true;
 
-    } else if (channel_pitch->get_control_in() < -50) {
+    } else if (channel_pitch->get_control_in() < -50 && channel_pitch->get_control_in() < -abs(channel_roll->get_control_in())) {
         pwm = channel_pitch->get_radio_in();
 
         motor1 = 2;
@@ -81,7 +81,10 @@ void ModeFlipAfterCrash::run() {
         turnOnMotors = true;
 
     }
-
+    if(pwm<950)
+    {
+        turnOnMotors = false;
+    }
     pwm = constrain_int16(pwm, 1000, 2000);
     //uint16_t value = 2 * (pwm - 1000);
     uint16_t value = pwm;
