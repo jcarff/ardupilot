@@ -75,7 +75,7 @@ void Scheduler::init_realtime()
     mlockall(MCL_CURRENT|MCL_FUTURE);
 
     struct sched_param param = { .sched_priority = APM_LINUX_MAIN_PRIORITY };
-    if (sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
+    if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &param) == -1) {
         AP_HAL::panic("Scheduler: failed to set scheduling parameters: %s",
                       strerror(errno));
     }
@@ -237,9 +237,7 @@ void Scheduler::_timer_task()
 
 void Scheduler::_run_io(void)
 {
-    if (!_io_semaphore.take(HAL_SEMAPHORE_BLOCK_FOREVER)) {
-        return;
-    }
+    _io_semaphore.take_blocking();
 
     // now call the IO based drivers
     for (int i = 0; i < _num_io_procs; i++) {
